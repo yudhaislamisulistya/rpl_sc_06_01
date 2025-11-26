@@ -1,0 +1,12 @@
+# Models
+models/*.pkl
+
+# Logs
+logs/*.log
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual env
+.venv/

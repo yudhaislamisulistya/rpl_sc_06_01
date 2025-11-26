@@ -1,0 +1,109 @@
+name: CI/CD - MLOps Komoditas
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+
+jobs:
+  ci-build-test-train-docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 3. Install dependencies (di dalam folder 03_MLOps_Sample)
+      - name: Install dependencies
+        working-directory: 03_MLOps_Sample
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. (Opsional) Jalankan unit test jika folder tests/ ada
+      - name: Run tests (if any)
+        working-directory: 03_MLOps_Sample
+        run: |
+          if [ -d "tests" ]; then
+            echo "Running pytest..."
+            pip install pytest
+            pytest
+          else
+            echo "No tests directory found, skipping tests."
+          fi
+
+      # 5. Jalankan training script: 03_MLOps_Sample/src/training/train.py
+      - name: Run training script
+        working-directory: 03_MLOps_Sample
+        run: |
+          if [ -f "src/training/train.py" ]; then
+            python src/training/train.py
+          else
+            echo "src/training/train.py not found, skip training."
+          fi
+
+      # 6. Build Docker image (cek Dockerfile valid, belum push ke registry)
+      - name: Build Docker image
+        working-directory: 03_MLOps_Sample
+        run: |
+          docker build -t mlops-komoditas:${{ github.sha }} .
+
+  deploy-to-server:
+    needs: ci-build-test-train-docker
+    # hanya jalan jika push ke branch main (bukan PR)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to SSH server via appleboy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            echo "=== Pindah ke home directory user ==="
+            cd /home/yis
+
+            echo "=== Cek apakah repo rpl_sc_06_01 sudah ada ==="
+            if [ -d "rpl_sc_06_01/.git" ]; then
+              echo "Direktori git ditemukan, pull origin main"
+              cd rpl_sc_06_01
+              sudo git pull origin main
+            else
+              echo "Direktori git tidak ditemukan, clone repo"
+              sudo rm -rf rpl_sc_06_01 || true
+              sudo git clone https://github.com/yudhaislamisulistya/rpl_sc_06_01.git
+              cd rpl_sc_06_01
+            fi
+
+            echo "=== Masuk ke folder project 03_MLOps_Sample ==="
+            cd 03_MLOps_Sample
+
+            echo "=== Install / update dependencies di server ==="
+            sudo pip3 install --upgrade pip
+            sudo pip3 install -r requirements.txt
+
+            echo "=== Jalankan training di server untuk update models/model.pkl ==="
+            if [ -f "src/training/train.py" ]; then
+              sudo python3 src/training/train.py
+            else
+              echo "src/training/train.py tidak ditemukan di server, skip training."
+            fi
+
+            echo "=== Deploy dengan Docker Compose (build & restart) ==="
+            # kalau sebelumnya ada service, matikan dulu
+            sudo docker compose down || true
+            sudo docker compose up -d --build
+
+            echo "=== Deploy selesai. Container mlops-komoditas & stack lain jalan via docker compose ==="
