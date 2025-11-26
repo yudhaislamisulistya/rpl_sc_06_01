@@ -1,9 +1,17 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, HTTPException
 from pydantic import BaseModel
 import joblib
 import time
+import os
+import httpx
+
 
 from src.utils.logger import log_prediction
+
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+OWNER = "yudhaislamisulistya"
+REPO = "rpl_sc_06_01"
+WORKFLOW = "ci-cd-mlops.yaml"
 
 # 🔹 Prometheus imports
 from prometheus_client import (
@@ -86,3 +94,36 @@ def predict(data: PriceInput):
     log_prediction(data.dict(), float(y_pred))
 
     return PricePrediction(predicted_price=float(y_pred))
+
+
+@app.post("/github-auto-train")
+async def github_auto_train():
+    """
+    Endpoint sederhana untuk trigger GitHub Actions workflow.
+    Tidak butuh request body.
+    """
+    if not GITHUB_TOKEN:
+        raise HTTPException(status_code=500, detail="GITHUB_TOKEN belum diset di environment")
+
+    url = f"https://api.github.com/repos/{OWNER}/{REPO}/actions/workflows/{WORKFLOW}/dispatches"
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            url,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {GITHUB_TOKEN}",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "Content-Type": "application/json",
+            },
+            json={"ref": "main"},
+        )
+
+    if resp.status_code >= 300:
+        # Kalau ada error dari GitHub, lempar ke client biar kelihatan
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"GitHub API error: {resp.text}",
+        )
+
+    return {"status": "ok", "github_status": resp.status_code}
