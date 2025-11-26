@@ -11,6 +11,10 @@ MODEL_PATH = "models/model.pkl"
 # alamat Pushgateway (bisa diatur via env var)
 PUSHGATEWAY_ADDR = os.getenv("PUSHGATEWAY_ADDR", "localhost:9091")
 
+import pandas as pd
+from datetime import timedelta
+
+
 def evaluate_model():
     if not os.path.exists(MODEL_PATH):
         print("❌ Model belum ada! Latih dulu dengan train.py")

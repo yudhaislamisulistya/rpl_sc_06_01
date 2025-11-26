@@ -4,7 +4,9 @@ import joblib
 import time
 import os
 import httpx
-
+from datetime import date
+from pathlib import Path
+import pandas as pd
 
 from src.utils.logger import log_prediction
 
@@ -47,6 +49,56 @@ class PriceInput(BaseModel):
 class PricePrediction(BaseModel):
     predicted_price: float
 
+class ActualPriceInput(BaseModel):
+    date: date           # format: YYYY-MM-DD
+    price_today: float
+
+
+DATA_PATH = Path("data/data.csv")
+
+def upsert_actual_price(input_date, price_today):
+    # Baca CSV
+    df = pd.read_csv(DATA_PATH, parse_dates=["date"])
+
+    # Cek apakah tanggal sudah ada
+    mask = df["date"] == pd.to_datetime(input_date)
+
+    if mask.any():
+        # ✅ Sudah ada → replace price_today saja
+        df.loc[mask, "price_today"] = price_today
+    else:
+        # ✅ Belum ada → append baris baru
+        # Cari tanggal sebelumnya (paling dekat di bawahnya)
+        prev_df = df[df["date"] < pd.to_datetime(input_date)].sort_values("date")
+
+        if not prev_df.empty:
+            last_row = prev_df.iloc[-1]
+            price_lag1 = last_row["price_today"]
+            price_lag2 = last_row["price_lag1"]
+        else:
+            # Kalau belum ada data sebelumnya (kasus awal banget)
+            price_lag1 = price_today
+            price_lag2 = price_today
+
+        new_row = {
+            "date": pd.to_datetime(input_date),
+            "price_lag1": float(price_lag1),
+            "price_lag2": float(price_lag2),
+            "price_today": float(price_today),
+        }
+
+        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+
+    # Urutkan lagi berdasarkan tanggal
+    df = df.sort_values("date")
+
+    # Simpan kembali
+    df.to_csv(DATA_PATH, index=False)
+
+    return {
+        "date": str(input_date),
+        "price_today": float(price_today),
+    }
 
 # 🔹 Middleware untuk hitung latency & jumlah request
 @app.middleware("http")
@@ -95,7 +147,17 @@ def predict(data: PriceInput):
 
     return PricePrediction(predicted_price=float(y_pred))
 
-
+@app.post("/set-actual")
+def set_actual(data: ActualPriceInput):
+    result = upsert_actual_price(
+        input_date=data.date,
+        price_today=data.price_today,
+    )
+    return {
+        "message": "Actual price saved",
+        "data": result,
+    }
+    
 @app.post("/github-auto-train")
 async def github_auto_train():
     """
