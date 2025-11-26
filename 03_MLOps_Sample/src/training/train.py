@@ -24,5 +24,5 @@ mae = mean_absolute_error(y_test, y_pred)
 print("MAE:", mae)
 
 # 5. Simpan model
-joblib.dump(model, "model.pkl")
-print("Model saved to model.pkl")
+joblib.dump(model, "models/model.pkl")
+print("Model saved to models/model.pkl")
