@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 import joblib
+import os
 
 # 1. Load data
 df = pd.read_csv("data/data.csv")
@@ -23,6 +24,9 @@ y_pred = model.predict(X_test)
 mae = mean_absolute_error(y_test, y_pred)
 print("MAE:", mae)
 
-# 5. Simpan model
+# Pastikan folder models/ ada
+os.makedirs("models", exist_ok=True)
+
+# Simpan model
 joblib.dump(model, "models/model.pkl")
 print("Model saved to models/model.pkl")
