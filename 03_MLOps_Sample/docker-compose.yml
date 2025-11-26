@@ -11,6 +11,7 @@ services:
     restart: unless-stopped
     environment:
       - PUSHGATEWAY_ADDR=pushgateway:9091
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
     volumes:
       - ./models:/app/models
       - ./logs:/app/logs

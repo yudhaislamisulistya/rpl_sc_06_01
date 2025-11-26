@@ -104,12 +104,15 @@ jobs:
               echo "src/training/train.py tidak ditemukan di server, skip training."
             fi
 
+
             if [ -f "src/monitoring/evaluate.py" ]; then
               echo "=== Jalankan evaluate.py untuk update metrics di Pushgateway ==="
               sudo python3 src/monitoring/evaluate.py
             else
               echo "src/monitoring/evaluate.py tidak ditemukan di server, skip evaluate."
             fi
+
+            export GITHUB_TOKEN=${{ secrets.GIT_TOKEN }}
 
             echo "=== Deploy dengan Docker Compose (build & restart) ==="
             # ====== CEK: Apakah stack sudah pernah running ======
