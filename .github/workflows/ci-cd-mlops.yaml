@@ -6,6 +6,7 @@ on:
       - main
       - develop
   pull_request:
+  workflow_dispatch:
 
 jobs:
   ci-build-test-train-docker:
@@ -90,15 +91,26 @@ jobs:
             echo "=== Masuk ke folder project 03_MLOps_Sample ==="
             cd 03_MLOps_Sample
 
-            echo "=== Install / update dependencies di server ==="
-            sudo pip3 install --upgrade pip
-            sudo pip3 install -r requirements.txt
+            # check apakah ada pip atau tidak
+            if ! command -v pip &> /dev/null
+            then
+              echo "pip could not be found, installing pip..."
+              sudo apt-get update
+              sudo apt-get install pip
+            fi
 
             echo "=== Jalankan training di server untuk update models/model.pkl ==="
             if [ -f "src/training/train.py" ]; then
               sudo python3 src/training/train.py
             else
               echo "src/training/train.py tidak ditemukan di server, skip training."
+            fi
+
+            if [ -f "src/monitoring/evaluate.py" ]; then
+              echo "=== Jalankan evaluate.py untuk update metrics di Pushgateway ==="
+              sudo python3 src/monitoring/evaluate.py
+            else
+              echo "src/monitoring/evaluate.py tidak ditemukan di server, skip evaluate."
             fi
 
             echo "=== Deploy dengan Docker Compose (build & restart) ==="

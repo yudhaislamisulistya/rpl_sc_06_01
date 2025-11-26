@@ -1,0 +1,37 @@
+name: Evaluate Model MAE - Daily
+
+on:
+  schedule:
+    # Setiap hari jam 01.00 WIB (WIB = UTC+7 → 18:00 UTC)
+    - cron: "0 18 * * *"
+  workflow_dispatch: # bisa dijalankan manual dari GitHub UI juga
+
+jobs:
+  eval-and-push-metrics:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run evaluate_model on SSH server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            echo "=== Masuk ke folder project di server ==="
+            cd /home/yis/rpl_sc_06_01/03_MLOps_Sample
+
+            # check apakah ada pip atau tidak
+            if ! command -v pip &> /dev/null
+            then
+              echo "pip could not be found, installing pip..."
+              sudo apt-get update
+              sudo apt-get install pip
+            fi
+
+            echo "=== Jalankan evaluate_model untuk hitung MAE & push ke Pushgateway ==="
+            # Karena evaluate.py jalan di host, Pushgateway di-akses lewat pushgateway:9091
+            PUSHGATEWAY_ADDR=pushgateway:9091 sudo -E python3 src/monitoring/evaluate.py
+
+            echo "=== Selesai: MAE terbaru sudah dikirim ke Prometheus via Pushgateway ==="
