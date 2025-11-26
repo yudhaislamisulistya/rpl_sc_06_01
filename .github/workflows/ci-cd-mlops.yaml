@@ -112,7 +112,7 @@ jobs:
               echo "src/monitoring/evaluate.py tidak ditemukan di server, skip evaluate."
             fi
 
-            export GITHUB_TOKEN=${{ secrets.GIT_TOKEN }}
+            export GITHUB_TOKEN=${{ secrets.TOKEN_GITHUB }}
 
             echo "=== Deploy dengan Docker Compose (build & restart) ==="
             # ====== CEK: Apakah stack sudah pernah running ======
