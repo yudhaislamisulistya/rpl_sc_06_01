@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      # 3. Install dependencies (di dalam folder 03_MLOps_Sample)
+      # 3. Install dependencies (di dalam folder 03_MLOps_Sample) -- requirements.txt
       - name: Install dependencies
         working-directory: 03_MLOps_Sample
         run: |
